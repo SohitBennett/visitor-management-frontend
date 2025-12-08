@@ -1,3 +1,13 @@
+GateKeeper – Smart Visitor Management System [Live Link]:
+◦ A full-stack visitor management solution to streamline entry logging, authorization, and monitoring for
+organizations.
+◦ It Impliments secure authentication, real-time visitor tracking, and automated entry approvals using QR codes to
+enhance workplace security.
+◦ Designed with an intuitive admin dashboard for visitor records, analytics, and reporting.
+
+
+
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 ## Getting Started
