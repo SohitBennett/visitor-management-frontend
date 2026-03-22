@@ -11,6 +11,10 @@ const inter = Inter({
 export const metadata = {
   title: "GateKeeper — Visitor Management System",
   description: "Modern visitor management system for enterprises. Manage visitor check-ins, approvals, and security with ease.",
+  icons: {
+    icon: "/gatekeeper_logo_alternate.png",
+    apple: "/gatekeeper_logo_alternate.png",
+  },
 };
 
 export default function RootLayout({ children }) {
