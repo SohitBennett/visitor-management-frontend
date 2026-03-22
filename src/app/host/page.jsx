@@ -1,35 +1,82 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '../components/ui/button';
-import { FcApprove } from "react-icons/fc";
-import { FcDisapprove } from "react-icons/fc";
-import { IoMdArrowRoundBack } from "react-icons/io";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  ClipboardList,
+  UserCheck,
+  Bell,
+  ArrowRight,
+  Loader2,
+} from "lucide-react";
+
+const actions = [
+  {
+    title: "Pending Requests",
+    description: "View and approve or reject visitor requests",
+    icon: ClipboardList,
+    href: "/host/requests",
+    color: "text-primary",
+    bg: "bg-primary/10",
+  },
+  {
+    title: "Pre-approve Visitor",
+    description: "Schedule and pre-approve upcoming visitors",
+    icon: UserCheck,
+    href: "/host/preapprove",
+    color: "text-success",
+    bg: "bg-success/10",
+  },
+  {
+    title: "Notifications",
+    description: "Real-time alerts when visitors check in",
+    icon: Bell,
+    href: "/host/notification",
+    color: "text-warning",
+    bg: "bg-warning/10",
+  },
+];
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
+};
 
 export default function HostDashboard() {
   const [host, setHost] = useState(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     const fetchHostData = async () => {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       if (!token) {
-        alert("No token found!");
+        router.push("/login");
         return;
       }
 
-      // Decode token to get host ID
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const payload = JSON.parse(atob(token.split(".")[1]));
       const hostId = payload.id;
 
       try {
-        // const res = await fetch(`http://localhost:5000/api/auth/status/${hostId}`, {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/status/${hostId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/status/${hostId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
 
         if (!res.ok) throw new Error("Host data fetch failed");
 
@@ -37,57 +84,71 @@ export default function HostDashboard() {
         setHost(data.user);
       } catch (err) {
         console.error(err);
-        alert("Failed to fetch host data");
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchHostData();
-  }, []);
+  }, [router]);
 
-  if (!host) return <p className="text-center mt-10">Loading...</p>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <main className='w-full h-screen bg-neutral-500 flex items-center justify-center'>
-      <div className="bg-neutral-300 rounded-xl p-6 space-y-4 max-w-xl mx-auto">
-        
-        <h2 className="text-2xl font-bold tracking-tighter">Welcome to Employee Dashboard</h2>
-        <p className='font-semibold tracking-tighter mb-10'>Email: {host.email}</p>
-        {/* <p>Department: {host.department}</p> */}
-
-        <div className="space-y-3 mt-6">
-          <Button
-            className="w-full flex items-center justify-between"
-            onClick={() => router.push('/host/requests')}
-          >
-            View & Approve Pending Visitors    
-            <FcApprove className='text-2xl'/>
-            <FcDisapprove className='text-2xl'/>
-          </Button>
-
-          <Button
-            className="w-full"
-            variant="outline"
-            onClick={() => router.push('/host/preapprove')}
-          >
-            Pre-Approve a Visitor
-          </Button>
-          <div className='flex gap-1'>
-            <div className='rounded-full' >
-              <IoMdArrowRoundBack className='text-2xl rounded-full  hover:bg-neutral-400 transition' onClick={() => router.push('/login')}/>  
-            </div>
-            <span className='font-semibold tracking-tighter '>Go back to Login</span>
-          </div>
-          <Button
-            className="w-full"
-            variant="outline"
-            onClick={() => router.push('/host/notification')}
-          >
-            Notifications
-          </Button>
-          
-
-        </div>
+    <div className="max-w-4xl mx-auto">
+      <div className="animate-fade-in mb-8">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Welcome back{host?.name ? `, ${host.name}` : ""}
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          {host?.email && (
+            <span className="font-mono text-sm">{host.email}</span>
+          )}
+        </p>
       </div>
-    </main>  
+
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      >
+        {actions.map((action) => {
+          const Icon = action.icon;
+          return (
+            <motion.div key={action.href} variants={itemVariants}>
+              <Card
+                className="group cursor-pointer border border-border hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300"
+                onClick={() => router.push(action.href)}
+              >
+                <CardContent className="p-6">
+                  <div
+                    className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${action.bg} mb-4`}
+                  >
+                    <Icon className={`w-5 h-5 ${action.color}`} />
+                  </div>
+                  <h3 className="font-semibold text-foreground mb-1">
+                    {action.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {action.description}
+                  </p>
+                  <div className="flex items-center gap-1 mt-4 text-sm font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span>Open</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })}
+      </motion.div>
+    </div>
   );
 }

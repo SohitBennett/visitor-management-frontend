@@ -1,13 +1,30 @@
+"use client";
 
-'use client';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, FileText, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
-import React, { useEffect, useState } from 'react'; // Added React import
-import { useRouter } from 'next/navigation';
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.04 },
+  },
+};
+
+const rowVariants = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
 
 const LogsPage = () => {
-  // State to store the processed logs, where each entry represents a visitor's visit
-  // and contains both check-in and check-out times if available.
   const [processedLogs, setProcessedLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -19,7 +36,6 @@ const LogsPage = () => {
           return;
         }
 
-        // const res = await fetch("http://localhost:5000/api/logs", {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/logs`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -27,130 +43,178 @@ const LogsPage = () => {
         });
 
         if (!res.ok) {
-          // If the response is not OK, throw an error with the status
           const errorText = await res.text();
           throw new Error(`Failed to fetch logs: ${res.status} - ${errorText}`);
         }
 
         const rawLogs = await res.json();
-        console.log("Raw logs received:", rawLogs);
 
-        // --- Data Processing Logic ---
-        // This object will temporarily store visitor visit data,
-        // grouping check-ins and check-outs by visitor.
         const visitsMap = {};
-
-        rawLogs.forEach(log => {
-          // Ensure log.visitor and log.visitor._id exist
-          if (!log.visitor || !log.visitor._id) {
-            console.warn("Skipping log due to missing visitor or visitor ID:", log);
-            return;
-          }
+        rawLogs.forEach((log) => {
+          if (!log.visitor || !log.visitor._id) return;
 
           const visitorId = log.visitor._id;
-
-          // If this is the first time we encounter this visitor, initialize their entry
           if (!visitsMap[visitorId]) {
             visitsMap[visitorId] = {
-              _id: visitorId, // Using visitor's ID as the unique key for the row
+              _id: visitorId,
               fullName: log.visitor.fullName,
-              checkInTime: log.visitor.checkInTime, // Will store the timestamp of check-in
-              checkOutTime: log.visitor.checkOutTime, // Will store the timestamp of check-out
-              lastAction: log.action, // Added to store the last action for this visitor
-              // You might add other visitor details here if you want them in the table row
+              checkInTime: log.visitor.checkInTime,
+              checkOutTime: log.visitor.checkOutTime,
+              lastAction: log.action,
               email: log.visitor.email,
               contactInfo: log.visitor.contactInfo,
             };
           }
-
-
           visitsMap[visitorId].lastAction = log.action;
         });
 
-        // Convert the map of visits into an array for rendering
-        const finalLogsToDisplay = Object.values(visitsMap);
-        setProcessedLogs(finalLogsToDisplay);
-        console.log("Processed logs for display:", finalLogsToDisplay);
-
+        setProcessedLogs(Object.values(visitsMap));
       } catch (err) {
         console.error("Failed to fetch or process logs:", err);
-        // Optionally, display an error message to the user
+      } finally {
+        setLoading(false);
       }
     };
     fetchLogs();
-  }, [router]); // Add router to dependency array as it's used inside useEffect
+  }, [router]);
 
-  // Helper function to format UTC dates to IST
   const formatToIST = (utcDate) => {
-    if (!utcDate) return '—'; // Return placeholder if date is null/undefined
+    if (!utcDate) return "\u2014";
     const date = new Date(utcDate);
-    // Check if the date is valid before formatting
-    if (isNaN(date.getTime())) {
-      console.warn("Invalid date provided for formatting:", utcDate);
-      return 'Invalid Date';
-    }
-    return date.toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    if (isNaN(date.getTime())) return "Invalid Date";
+    return date.toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
       hour12: true,
     });
   };
 
+  const getActionBadge = (action) => {
+    if (!action) return <Badge variant="outline">N/A</Badge>;
+    const lower = action.toLowerCase();
+    if (lower.includes("check-in") || lower.includes("checkin")) {
+      return <Badge className="bg-success/10 text-success border-success/20 hover:bg-success/10">Checked In</Badge>;
+    }
+    if (lower.includes("check-out") || lower.includes("checkout")) {
+      return <Badge variant="secondary">Checked Out</Badge>;
+    }
+    return <Badge variant="outline">{action}</Badge>;
+  };
+
+  const filteredLogs = processedLogs.filter(
+    (log) =>
+      (log.fullName || "").toLowerCase().includes(search.toLowerCase()) ||
+      (log.email || "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen p-6 bg-gray-100">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">Visitor Entry/Exit Logs</h1>
-      <div className="overflow-x-auto bg-white rounded-lg shadow-lg">
-        <table className="min-w-full table-auto border-collapse">
-          <thead className="bg-gray-200 text-gray-700">
-            <tr>
-              <th className="py-3 px-4 border-b border-gray-300 text-left">Visitor Name</th>
-              <th className="py-3 px-4 border-b border-gray-300 text-left">Email</th>
-              <th className="py-3 px-4 border-b border-gray-300 text-left">Contact Info</th>
-              <th className="py-3 px-4 border-b border-gray-300 text-left">Check-In Time</th>
-              <th className="py-3 px-4 border-b border-gray-300 text-left">Check-Out Time</th>
-              <th className="py-3 px-4 border-b border-gray-300 text-left">Action</th> 
-              
-            </tr>
-          </thead>
-          <tbody>
-            {processedLogs.length === 0 ? (
-              <tr>
-                <td colSpan="6" className="py-4 px-4 text-center text-gray-500"> {/* Updated colspan */}
-                  {/* Display a loading message or 'No logs' message */}
-                  Loading logs... or No logs found.
-                </td>
-              </tr>
-            ) : (
-              processedLogs.map((log) => (
-                <tr key={log._id} className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="py-3 px-4 text-gray-800">{log.fullName}</td>
-                  <td className="py-3 px-4 text-gray-600">{log.email || 'N/A'}</td>
-                  <td className="py-3 px-4 text-gray-600">{log.contactInfo || 'N/A'}</td>
-                  <td className="py-3 px-4 text-gray-600">
-                    {formatToIST(log.checkInTime)}
-                  </td>
-                  <td className="py-3 px-4 text-gray-600">
-                    {formatToIST(log.checkOutTime)}
-                  </td>
-                  <td className="py-3 px-4 text-gray-600">{log.lastAction || 'N/A'}</td> 
-                  
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+    <div className="max-w-6xl mx-auto">
+      <div className="animate-fade-in mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Visitor Logs</h1>
+        <p className="text-muted-foreground mt-1">
+          {processedLogs.length} total records
+        </p>
       </div>
 
-      <button
-        className="mt-8 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 transition duration-300"
-        onClick={() => router.back()}
-      >
-        Go Back
-      </button>
+      {/* Search */}
+      <div className="animate-fade-in mb-6">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name or email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Visitor
+                  </th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Contact
+                  </th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Check In
+                  </th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Check Out
+                  </th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <motion.tbody
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+              >
+                {filteredLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="py-16 text-center">
+                      <FileText className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+                      <p className="text-sm text-muted-foreground">
+                        {search ? "No matching records found" : "No visitor logs yet"}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredLogs.map((log) => (
+                    <motion.tr
+                      key={log._id}
+                      variants={rowVariants}
+                      className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
+                    >
+                      <td className="py-3 px-4">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {log.fullName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {log.email || "N/A"}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-muted-foreground font-mono">
+                        {log.contactInfo || "N/A"}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-foreground">
+                        {formatToIST(log.checkInTime)}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-foreground">
+                        {formatToIST(log.checkOutTime)}
+                      </td>
+                      <td className="py-3 px-4">
+                        {getActionBadge(log.lastAction)}
+                      </td>
+                    </motion.tr>
+                  ))
+                )}
+              </motion.tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
